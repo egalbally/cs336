@@ -1,5 +1,5 @@
 import numpy as np
-from Q1 import Q1_solution
+from .Q1 import Q1_solution
 
 
 class Q2_solution(Q1_solution):
