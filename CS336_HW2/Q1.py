@@ -12,10 +12,10 @@ class Q1_solution(object):
     A = np.array([[1,0,0,t,0,0],
                   [0,1,0,0,t,0],
                   [0,0,1,0,0,t],
-                  [0,0,0,1,0,0],
-                  [0,0,0,0,1,0],
-                  [0,0,0,0,0,1]])
-    print("A(6,6)", A.shape())
+                  [0,0,0,0.8,0,0],
+                  [0,0,0,0,0.8,0],
+                  [0,0,0,0,0,0.8]])
+#     print("A(6,6)", A.shape)
     return A
 
   @staticmethod
@@ -26,8 +26,8 @@ class Q1_solution(object):
     """
     # noise only in the vel part of the state which depends on a*t (not measurable)
     Q = np.zeros((6,6))
-    Q[4,4] = Q[5,5] = Q[6,6] = 0.5 
-    print("Q(6,6)", Q.size())
+    Q[3,3] = Q[4,4] = Q[5,5] = 0.05 
+#     print("Q(6,6)", Q.shape)
     return Q
 
   @staticmethod
@@ -38,7 +38,7 @@ class Q1_solution(object):
     """
     R = np.array([[5, 0],
                   [0, 5]])
-    print("R(2,2)", R.size())
+#     print("R(2,2)", R.shape)
     return R
 
   @staticmethod
@@ -49,13 +49,13 @@ class Q1_solution(object):
     Output:
       obs: (2,) numpy array representing observation.
     """
-    state_p = np.reshape(state[0:4], (3,1))
+    state_p = state[0:3]
     k_camera = np.array([[500,0,320],
                          [0,500,240],
                          [0,0,1]])
     obs_3d = np.dot(k_camera,state_p)
-    obs = (obs_3d[0]/obs_3d[2], obs_3d[1]/obs_3d[2])
-    print("obs(2,)", obs.size())
+    obs = np.array([obs_3d[0]/obs_3d[2], obs_3d[1]/obs_3d[2]])
+#     print("obs(2,)", obs.shape)
     return obs
 
   def simulation(self, T=100):
@@ -73,40 +73,28 @@ class Q1_solution(object):
     #     Q1C: Please use the 6D process noise covariance when generating process noise. Using the 3x3 submatrix will not match our implementation.
     
     # Vars
-    x_0 = np.array([0.5, 0.0, 5.0, 0.0, 0.0, 0.0])  
-    meas_mean = [0, 0]
-    meas_cov = observation_noise_covariance() # (2x2)
-    predState_mean = np.zeros((1,6))
-    predState_cov = process_noise_covariance() #(6x6)    
-    states = np.zeros((T,6))
+    x0 = np.array([0.5, 0.0, 5.0, 0.0, 0.0, 0.0]) 
+    A = self.system_matrix()
+    #   -observations
+    obs_mean = np.zeros((2,))
+    obs_cov = self.observation_noise_covariance() #(2x2)
     observations = np.zeros((T,2)) 
-    
+    #   -states
+    predState_mean = np.zeros((6,))
+    predState_cov = self.process_noise_covariance() #(6x6)    
+    states = np.zeros((T,6))
+        
     # States and observations
     for i in range(T):
         if i == 0:
-            states[i,:] = x_0
-            meas_noise = np.random.multivariate_normal(meas_mean, meas_cov)
-            observations[i,:] = observation(x0) + meas_noise
+            states[i,:] = x0
+            obs_noise = np.random.multivariate_normal(obs_mean, obs_cov)
+            observations[i,:] = self.observation(x0) + obs_noise
         else:
             predState_noise = np.random.multivariate_normal(predState_mean, predState_cov)
-            meas_noise = np.random.multivariate_normal(meas_mean, meas_cov)
-            states[i,:] = states[i-1,:] + predState_noise
-            observations[i,:] = observation[i-1] + meas_noise
-    
-    # Plot
-    statePlot = plt.axes(projection='3d')
-    statePlot.plot3D(states[:,0], states[:,1], states[:,2], 'blue')
-    plt.show()
-    
-#     fig, predictions = plt.subplots(1, 2)
-#     predictions[0].plot3D(x_t0, y_t0, color = color_t0/255)
-#     predictions[0].set_title('predicted position')
-#     predictions[1].scatter(x_t2, y_t2, color = color_t2/255)
-#     predictions[1].set_title('observations')
-#     plt.show()
-    
-#     print("states: (100,6)", states.shape())
-#     print("observations: (100,2)", observations.shape())
+            states[i,:] = np.dot(A,states[i-1,:]) + predState_noise
+            obs_noise = np.random.multivariate_normal(obs_mean, obs_cov)
+            observations[i,:] = self.observation(states[i,:]) + obs_noise
     
     return states, observations
 
@@ -118,7 +106,13 @@ class Q1_solution(object):
     Output:
       H: (2,6) numpy array, the jacobian of the observation model w.r.t state.
     """
-    raise NotImplementedError
+    fx = 500
+    fy = 500
+    xi = x[0]
+    y = x[1]
+    z = x[2]
+    H = np.array([[fx/z, 0, -xi*fx/(z*z), 0,0,0],
+                  [0, fy/z, -y*fy/(z*z), 0,0,0]])
     return H
 
   def EKF(self, observations):
@@ -150,6 +144,7 @@ class Q1_solution(object):
         #     sigma_0 = np.eye(6)*0.01
         #     sigma_0[3:,3:] = 0.0
     
+    raise NotImplementedError
 
     mu_0 = np.array([0.5, 0.0, 5.0, 0.0, 0.0, 0.0])
     sigma_0 = np.eye(6)*0.01
@@ -183,7 +178,6 @@ if __name__ == "__main__":
     plt.ylim([0,480])
     plt.gca().invert_yaxis()
     plt.show()
-
     observations = np.load('./data/Q1E_measurement.npy')
     filtered_state_mean, filtered_state_sigma, predicted_observation_mean, predicted_observation_sigma = \
         solution.EKF(observations)
