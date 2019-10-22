@@ -8,16 +8,26 @@ class Q1_solution(object):
     Output:
       A: 6x6 numpy array for the system matrix.
     """
-    raise NotImplementedError()
+    t = 0.1
+    A = np.array([[1,0,0,t,0,0],
+                  [0,1,0,0,t,0],
+                  [0,0,1,0,0,t],
+                  [0,0,0,1,0,0],
+                  [0,0,0,0,1,0],
+                  [0,0,0,0,0,1]])
+    print("A(6,6)", A.shape())
     return A
 
   @staticmethod
   def process_noise_covariance():
-    “”“ Implement the covariance matrix Q for process noise.
+    """ Implement the covariance matrix Q for process noise.
     Output:
       Q: 6x6 numpy array for the covariance matrix.
     """
-    raise NotImplementedError()
+    # noise only in the vel part of the state which depends on a*t (not measurable)
+    Q = np.zeros((6,6))
+    Q[4,4] = Q[5,5] = Q[6,6] = 0.5 
+    print("Q(6,6)", Q.size())
     return Q
 
   @staticmethod
@@ -26,7 +36,9 @@ class Q1_solution(object):
     Output:
       R: 2x2 numpy array for the covariance matrix.
     """
-    raise NotImplementedError()
+    R = np.array([[5, 0],
+                  [0, 5]])
+    print("R(2,2)", R.size())
     return R
 
   @staticmethod
@@ -37,7 +49,13 @@ class Q1_solution(object):
     Output:
       obs: (2,) numpy array representing observation.
     """
-    raise NotImplementedError()
+    state_p = np.reshape(state[0:4], (3,1))
+    k_camera = np.array([[500,0,320],
+                         [0,500,240],
+                         [0,0,1]])
+    obs_3d = np.dot(k_camera,state_p)
+    obs = (obs_3d[0]/obs_3d[2], obs_3d[1]/obs_3d[2])
+    print("obs(2,)", obs.size())
     return obs
 
   def simulation(self, T=100):
@@ -51,8 +69,45 @@ class Q1_solution(object):
       We have set the random seed for you. Please only use np.random.multivariate_normal to sample noise.
       Keep in mind this function will be reused for Q2 by inheritance.
     """
-    x_0 = np.array([0.5, 0.0, 5.0, 0.0, 0.0, 0.0])
-    raise NotImplementedError()
+    #     the order to generate random noise should be: observation noise for T=0, process noise for T=1, observation noise for T=1, ...
+    #     Q1C: Please use the 6D process noise covariance when generating process noise. Using the 3x3 submatrix will not match our implementation.
+    
+    # Vars
+    x_0 = np.array([0.5, 0.0, 5.0, 0.0, 0.0, 0.0])  
+    meas_mean = [0, 0]
+    meas_cov = observation_noise_covariance() # (2x2)
+    predState_mean = np.zeros((1,6))
+    predState_cov = process_noise_covariance() #(6x6)    
+    states = np.zeros((T,6))
+    observations = np.zeros((T,2)) 
+    
+    # States and observations
+    for i in range(T):
+        if i == 0:
+            states[i,:] = x_0
+            meas_noise = np.random.multivariate_normal(meas_mean, meas_cov)
+            observations[i,:] = observation(x0) + meas_noise
+        else:
+            predState_noise = np.random.multivariate_normal(predState_mean, predState_cov)
+            meas_noise = np.random.multivariate_normal(meas_mean, meas_cov)
+            states[i,:] = states[i-1,:] + predState_noise
+            observations[i,:] = observation[i-1] + meas_noise
+    
+    # Plot
+    statePlot = plt.axes(projection='3d')
+    statePlot.plot3D(states[:,0], states[:,1], states[:,2], 'blue')
+    plt.show()
+    
+#     fig, predictions = plt.subplots(1, 2)
+#     predictions[0].plot3D(x_t0, y_t0, color = color_t0/255)
+#     predictions[0].set_title('predicted position')
+#     predictions[1].scatter(x_t2, y_t2, color = color_t2/255)
+#     predictions[1].set_title('observations')
+#     plt.show()
+    
+#     print("states: (100,6)", states.shape())
+#     print("observations: (100,2)", observations.shape())
+    
     return states, observations
 
   @staticmethod
@@ -80,14 +135,32 @@ class Q1_solution(object):
       predicted_observation_mean: (N,2) numpy array, the mean of predicted observations. Start from T=1
       predicted_observation_sigma: (N,2,2) numpy array, the covariance matrix of predicted observations. Start from T=1
     Note:
-      Keep in mind this function will be reused for Q2 by inheritance.
+      Keep in mind this function will be reused for Q2 by inheritance.  
     """
+    
+    #     Q1E: when plotting ellipse and ellipsoids, scale them to be confidence interval 95%
+    # As a reference, the code below generates the surface mesh numpy array for a sphere with radius 1 and centered at the origin. You should scale,rotate,and translate this sphere to be the error ellipsoid.
+
+        # u = np.linspace(0.0, 2.0 * np.pi, 10)
+        # v = np.linspace(0.0, np.pi, 10)
+        # x = np.outer(np.cos(u), np.sin(v))
+        # y = np.outer(np.sin(u), np.sin(v))
+        # z = np.outer(np.ones_like(u), np.cos(v))</code>
+        #     mu_0 = np.array([0.5, 0.0, 5.0, 0.0, 0.0, 0.0])
+        #     sigma_0 = np.eye(6)*0.01
+        #     sigma_0[3:,3:] = 0.0
+    
+
     mu_0 = np.array([0.5, 0.0, 5.0, 0.0, 0.0, 0.0])
     sigma_0 = np.eye(6)*0.01
     sigma_0[3:,3:] = 0.0
-    raise NotImplementedError()
+
+    
     return state_mean, state_sigma, predicted_observation_mean, predicted_observation_sigma
 
+
+'''----------------- TEST CODE ------------------------------'''
+'''----------------------------------------------------------'''
 
 if __name__ == "__main__":
     import matplotlib.pyplot as plt
