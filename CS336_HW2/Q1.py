@@ -213,24 +213,23 @@ if __name__ == "__main__":
     fig = plt.figure()
     ax = fig.add_subplot(111, projection='3d')
     ax.scatter(true_states[:,0], true_states[:,1], true_states[:,2], c='C0')
-#     for mean, cov in zip(filtered_state_mean, filtered_state_sigma):
-#         draw_3d(ax, cov[:3,:3], mean[:3])
+    for mean, cov in zip(filtered_state_mean, filtered_state_sigma):
+        draw_3d(ax, cov[:3,:3], mean[:3])
     ax.view_init(elev=10., azim=30)
+    fig.savefig("hw2_q1_ellipse3D.png",dpi=600)
     plt.show()
-#     plt.save("hw2_q1_3.png",ax)
-
     
     #fig.4
     fig = plt.figure()
     ax = fig.add_subplot(111)
     ax.scatter(observations[:,0], observations[:,1], s=4)
-#     for mean, cov in zip(predicted_observation_mean, predicted_observation_sigma):
-#         draw_2d(ax, cov, mean)
+    for mean, cov in zip(predicted_observation_mean, predicted_observation_sigma):
+        draw_2d(ax, cov, mean)
     plt.xlim([0,640])
     plt.ylim([0,480])
     plt.gca().invert_yaxis()
+    fig.savefig("hw2_q1_ellipse2D.png",dpi=600)
     plt.show()
-#     plt.save("hw2_q1_4.png",ax)
 
 
 

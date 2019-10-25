@@ -1,6 +1,6 @@
 import numpy as np
-# from Q1 import Q1_solution #to locally run the code
-from .Q1 import Q1_solution #for submission
+from Q1 import Q1_solution #to locally run the code
+# from .Q1 import Q1_solution #for submission
 
 
 class Q2_solution(Q1_solution): #Q2_solution inherits all attributes and functions from Q1_solution
@@ -78,52 +78,63 @@ if __name__ == "__main__":
     np.random.seed(315)
     solution = Q2_solution()
     states, observations = solution.simulation()
+    
     # plotting
     fig = plt.figure()
     ax = fig.add_subplot(111, projection='3d')
     ax.scatter(states[:,0], states[:,1], states[:,2], c=np.arange(states.shape[0]))
+    fig.savefig("hw2_q2_1.png",dpi=600)
     plt.show()
-
+    
+    # plotting
     fig = plt.figure()
     plt.scatter(observations[:,0], observations[:,1], c=np.arange(states.shape[0]), s=4)
     plt.xlim([0,640])
     plt.ylim([0,480])
     plt.gca().invert_yaxis()
+    fig.savefig("hw2_q2_2.png",dpi=600)
     plt.show()
 
     observations = np.load('./data/Q2D_measurement.npy')
     filtered_state_mean, filtered_state_sigma, predicted_observation_mean, predicted_observation_sigma = \
         solution.EKF(observations)
+    
     # plotting
     true_states = np.load('./data/Q2D_state.npy')
     fig = plt.figure()
     ax = fig.add_subplot(111, projection='3d')
     ax.scatter(true_states[:,0], true_states[:,1], true_states[:,2], c='C0')
-#     for mean, cov in zip(filtered_state_mean, filtered_state_sigma):
-#         draw_3d(ax, cov[:3,:3], mean[:3])
+    for mean, cov in zip(filtered_state_mean, filtered_state_sigma):
+        draw_3d(ax, cov[:3,:3], mean[:3])
     ax.view_init(elev=10., azim=45)
+    fig.savefig("hw2_q2_3.png",dpi=600)
     plt.show()
-
+    
+    # plotting
     fig = plt.figure()
     ax = fig.add_subplot(111)
     ax.scatter(observations[:,0], observations[:,1], s=4)
-#     for mean, cov in zip(predicted_observation_mean, predicted_observation_sigma):
-#         draw_2d(ax, cov[:2,:2], mean[:2])
+    for mean, cov in zip(predicted_observation_mean, predicted_observation_sigma):
+        draw_2d(ax, cov[:2,:2], mean[:2])
     plt.xlim([0,640])
     plt.ylim([0,480])
     plt.gca().invert_yaxis()
+    fig.savefig("hw2_q2_4.png",dpi=600)
     plt.show()
-
+    
+    # plotting
     fig = plt.figure()
     ax = fig.add_subplot(111)
-    ax.scatter(observations[:,0], observations[:,1]-observations[:,2], s=4)
-#     for mean, cov in zip(predicted_observation_mean, predicted_observation_sigma):
-        # TODO find out the mean and convariance for (u^R, v^R).
-#         raise NotImplementedError()
-#         draw_2d(ax, right_cov, right_mean)
+    ax.scatter(observations[:,0]-observations[:,2], observations[:,1], s=4)
+    for mean, cov in zip(predicted_observation_mean, predicted_observation_sigma): #this line renames to mean and cov for short
+        right_mean = np.array([mean[0]-mean[2], mean[1]])
+        right_cov = np.array([[cov[0,0] + cov[2,2], cov[0,1] - cov[2,1]],
+                              [cov[0,1] - cov[2,1], cov[1,1]]])
+        draw_2d(ax, right_cov, right_mean)
     plt.xlim([0,640])
     plt.ylim([0,480])
     plt.gca().invert_yaxis()
+    fig.savefig("hw2_q2_5.png",dpi=600)
     plt.show()
 
 
