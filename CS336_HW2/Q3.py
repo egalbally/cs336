@@ -19,15 +19,15 @@ def twist_to_transform(twist, time): #from hw1
     transform = scipy.linalg.expm(twist_matrix*time)
     return transform
 
-def transform_to_twist(transform):
+def transform_to_twist(T_pose):
     """ From hw1
     Input:
-      transform: (4,4) numpy array. The result from Q1_H.
+      T_pose: (4,4) numpy array. The result from Q1_H.
     Output:
       twist: a np array (vx,vy,vz,wx,wy,wz).
     """  
     # 1) T = e^[V] -> [V] = Ln(T): 
-    twist_skew = np.real(scipy.linalg.logm(transform))
+    twist_skew = np.real(scipy.linalg.logm(T_pose))
     
     # 2) From skew symm. to vector:
     twist = np.array([twist_skew[0,3], twist_skew[1,3],twist_skew[2,3],
@@ -51,15 +51,15 @@ def simulate(commands):
     poses = np.zeros((N+1, 4,4))
     twists = np.zeros((N+1, 6))
         
-    for i in range(N):
-        if i == 0:
-            poses[i] = pose_0
-            twists[i] = twist_0
+    for t in range(N): #we have 1 particle and propagate it in time
+        if t == 0:
+            poses[t] = pose_0
+            twists[t] = twist_0
         else:
-            twist_mat = twist_to_transform(twists[i-1], delta_t)
-            poses[i] = np.dot(twist_mat, poses[i-1])
+            twist_mat = twist_to_transform(twists[t-1], delta_t)
+            poses[t] = np.dot(twist_mat, poses[t-1])
             twist_noise = np.random.multivariate_normal(np.zeros((6,)), Q)
-            twists[i] = twists[i-1] + delta_t*commands[i-1] + twist_noise
+            twists[t] = twists[t-1] + delta_t*commands[t-1] + twist_noise
             
     return poses, twists
 
@@ -80,10 +80,9 @@ def particle_filter(observations, commands):
     twist_0 = np.zeros(6)
     
     # vars
-    num_part = 50
-    num_iter = 100 # for quick testing
-#     num_iter = observations.shape[0] # number of timesteps we will forward propagate through
-    weights = np.ones(num_part)/num_part
+    num_part = 100
+    num_iter = observations.shape[0] # number of timesteps we will forward propagate through
+    weights = np.ones(num_part)/num_part # normalized to 1
     max_prob_pose = np.zeros((num_iter, 4,4))
     max_prob = np.zeros(num_iter)
     poses = np.zeros((num_part, 4,4)) #contains all particles for one time step and gets overwritten at t+1
@@ -93,8 +92,6 @@ def particle_filter(observations, commands):
     pie_in_vector_form = np.zeros(num_total_de_quesitos_regulares,dtype=int)
     
     for t in range(num_iter):
-        print(t)
-#         print(max_prob_pose[0])
         for i in range(num_part):
             '''---------------------------------
                   Update particle values @t
@@ -110,43 +107,44 @@ def particle_filter(observations, commands):
                 poses[i] = np.dot(twist_mat, poses[i])
                 twist_noise = np.random.multivariate_normal(np.zeros((6,)), Q)
                 twists[i] = twists[i] + delta_t*commands[t-1] + twist_noise
-                
-            
+                         
             '''---------------------------------
                   Calculate particle weights @t
                ---------------------------------''' 
-            # (a) Finding the difference in pose: T_obs*T_i^(-1)
+            # (1) Finding the difference in pose: T_obs*T_i^(-1)
             delta_pose_4x4 = observations[t].dot(np.linalg.inv(poses[i]))
-            # (b) Transform  to 6D delta pose vector
+            # (2) Transform  to 6D delta pose vector
             delta_pose_twist = transform_to_twist(delta_pose_4x4)
-            # (c) Give big weights to the smallest delta pose twist vectors:
+            # (3) Give big weights to the smallest delta pose twist vectors:
             #     the weight values come from sampling a 6 dimensional gaussian distribution
             weights[i] = weights[i]* scipy.stats.multivariate_normal.pdf(delta_pose_twist,cov=R)
-            
-             # Save particle with biggest weight for output
+
+            # Save particle with biggest weight for output
             if(weights[i] > max_prob[t]):
-#             if i == 0:
                 max_prob[t] = weights[i]
                 max_prob_pose[t] = poses[i] 
-            
+
+        # Normalize all weights at once:
+        weights = weights/np.sum(weights)
+        
         '''-----------------------------------------------------------
               Resample particle values @t+1  --> La ruleta de la muerte 
            -----------------------------------------------------------'''
+        idx = 0
         for i in range(num_part):
-#             print(sum(weights))
-            normalized_weights = weights/np.sum(weights)
             # weight_i is to 1 like num_de_quesitos_por_particle is to num_total_de_quesitos_regulares
             num_de_quesitos_particle = int(np.floor(weights[i]*num_total_de_quesitos_regulares))
             # transformar los quesitos de la ruleta en un vector
-            for k in range(num_total_de_quesitos_regulares):
-                pie_in_vector_form[k:num_de_quesitos_particle] = i 
+            pie_in_vector_form[idx:idx+num_de_quesitos_particle] = i 
+            idx = idx + num_de_quesitos_particle
+        for i in range(num_part):
             # generar numeros aleatorios and resample
-            for j in range(num_part):
-                numero_magico = np.random.randint(1,num_part)
-                idx_particula_elegida = pie_in_vector_form[numero_magico]
-                poses[j] = poses[idx_particula_elegida]
-                weights[j] = weights[idx_particula_elegida]
-                
+            numero_magico = np.random.randint(0,num_total_de_quesitos_regulares)
+            idx_particula_elegida = pie_in_vector_form[numero_magico]
+            poses[i] = poses[idx_particula_elegida]
+            weights[i] = weights[idx_particula_elegida]
+            twists[i] = twists[idx_particula_elegida]
+
     return max_prob_pose, max_prob
 
 

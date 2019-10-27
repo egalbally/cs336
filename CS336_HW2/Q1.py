@@ -1,4 +1,5 @@
 import numpy as np
+import scipy.stats
 
 class Q1_solution(object):
 
@@ -111,7 +112,8 @@ class Q1_solution(object):
                   [0, fy/z, -y*fy/(z*z), 0,0,0]])
     return H
 
-  def EKF(self, observations):
+
+  def EKF(self, observations, q4flag):
     """ Implement Extended Kalman filtering (Q1E)
     Input:
       observations: (N,2) numpy array, the sequence of observations. From T=1.
@@ -146,9 +148,19 @@ class Q1_solution(object):
     state_sigma = np.zeros((N,6,6)) # sigma_pred
     state_mean = np.zeros((N,6)) # mu_pred
     
-    # Extended Kalman Filter Iterations
+    # Outlier vars
+    #     threshold = 0.001 #152 outliers
+    #     outlier_indexes = np.zeros(152, dtype = int)
+    threshold = 0.005 #182 outliers
+    outlier_indexes = np.zeros(182, dtype = int)
+    observations_prob = np.zeros(N)
+    count = 0
+        
+    '''--------------------------------------------------------
+        Extended Kalman Filter Iterations
+    -----------------------------------------------------------'''
     for t in range(N):
-        #  - Prediction
+        #  (1) Prediction
         if t == 0:
             pred_state_mean = np.dot(A,mu_0) 
             pred_state_sigma = np.dot(np.dot(A,sigma_0), A.transpose()) + Q       
@@ -156,7 +168,7 @@ class Q1_solution(object):
             pred_state_mean = np.dot(A,state_mean[t-1]) 
             pred_state_sigma = np.dot(np.dot(A,state_sigma[t-1]), A.transpose()) + Q
         
-        #  - Update with new observation and Kalman gain
+        #  (2) Update with new observation and Kalman gain
         H = self.observation_state_jacobian(pred_state_mean)
         knum = np.dot(pred_state_sigma,H.transpose())
         kdenom = np.dot(H,np.dot(pred_state_sigma,H.transpose())) + R
@@ -165,9 +177,24 @@ class Q1_solution(object):
         predicted_observation_sigma[t] = kdenom
         predicted_observation_mean[t] = self.observation(pred_state_mean)
         
-        state_mean[t] = pred_state_mean + np.dot(kgain, (observations[t] - predicted_observation_mean[t]))
-        state_sigma[t] = np.dot((I - np.dot(kgain,H)), pred_state_sigma)
-        
+        #  (2-opt) Reject outliers in the observations coming from the NN in Q4
+        if q4flag == True:
+            observations_prob[t] = scipy.stats.multivariate_normal.pdf(observations[t],mean=predicted_observation_mean[t],cov=predicted_observation_sigma[t])
+            if observations_prob[t] < threshold:
+                state_mean[t] = pred_state_mean #ignore observation because it's shitty
+                state_sigma[t] = pred_state_sigma
+                outlier_indexes[count] = t
+                count = count + 1
+            else:
+                state_mean[t] = pred_state_mean + np.dot(kgain, (observations[t] - predicted_observation_mean[t]))
+                state_sigma[t] = np.dot((I - np.dot(kgain,H)), pred_state_sigma)            
+        else:
+            state_mean[t] = pred_state_mean + np.dot(kgain, (observations[t] - predicted_observation_mean[t]))
+            state_sigma[t] = np.dot((I - np.dot(kgain,H)), pred_state_sigma)
+    
+    if  q4flag:
+        return state_mean, state_sigma, predicted_observation_mean, predicted_observation_sigma, outlier_indexes
+    
     return state_mean, state_sigma, predicted_observation_mean, predicted_observation_sigma
 
 
@@ -201,10 +228,11 @@ if __name__ == "__main__":
     plt.gca().invert_yaxis()
     fig.savefig("hw2_q1_2.png",dpi=600)
     plt.show()
-
+    
+    q4flag = False
     observations = np.load('./data/Q1E_measurement.npy')
     filtered_state_mean, filtered_state_sigma, predicted_observation_mean, predicted_observation_sigma = \
-        solution.EKF(observations)
+        solution.EKF(observations,q4flag)
     
     # ------- plotting
     true_states = np.load('./data/Q1E_state.npy')

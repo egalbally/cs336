@@ -78,6 +78,7 @@ if __name__ == "__main__":
     np.random.seed(315)
     solution = Q2_solution()
     states, observations = solution.simulation()
+    q4flag = False
     
     # plotting
     fig = plt.figure()
@@ -97,7 +98,7 @@ if __name__ == "__main__":
 
     observations = np.load('./data/Q2D_measurement.npy')
     filtered_state_mean, filtered_state_sigma, predicted_observation_mean, predicted_observation_sigma = \
-        solution.EKF(observations)
+        solution.EKF(observations,q4flag)
     
     # plotting
     true_states = np.load('./data/Q2D_state.npy')
